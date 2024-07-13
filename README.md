@@ -160,3 +160,104 @@ Potential areas for future improvement include:
 7. Menu system for game options and customization
 
 This modular design allows for easy expansion and modification of game features, providing a solid foundation for future development.
+
+
+
+
+
+# Pong Game Execution Behavior
+
+This document provides a detailed explanation of the execution behavior of the Pong game, from the initial `asyncio.run(main())` call through the goal animation sequence. We'll examine the relationships between all elements, events, and data flow using a top-down approach with diagrams and flowcharts at different levels of abstraction.
+
+## Table of Contents
+1. [Top-Level Execution Flow](#top-level-execution-flow)
+2. [Detailed Main Loop Execution](#detailed-main-loop-execution)
+3. [State Transitions](#state-transitions)
+4. [Data Flow Between Classes](#data-flow-between-classes)
+5. [Detailed Goal Animation Sequence](#detailed-goal-animation-sequence)
+6. [Summary](#summary)
+
+## Top-Level Execution Flow
+
+The game's execution begins with the `asyncio.run(main())` call, which initializes the LCD display and creates a Pong game instance. It then enters the main game loop, which continues until the game is no longer running. In each iteration of this loop, the game checks its current state (Welcome, Playing, Paused, or Goal) and updates accordingly. After updating, it draws the current state and displays it on the LCD. This process repeats, with the game constantly checking if it should continue running or end.
+
+The highest level of abstraction shows the overall flow of the game:
+
+![Alt text](png/top_level_execution_flow.png?raw=true "Title")
+
+This flowchart illustrates the main execution flow of the game:
+1. The game starts with the `asyncio.run(main())` call.
+2. It initializes the LCD and creates a Pong game instance.
+3. The main game loop begins, which continues until the game is no longer running.
+4. In each iteration, it checks the current game state and updates accordingly.
+5. After updating, it draws the current state and displays it on the LCD.
+
+## Detailed Main Loop Execution
+
+Each iteration of the main game loop follows a specific sequence of operations. It starts by polling hardware inputs to determine user actions. Based on the current state and input, it updates game elements accordingly. For the Welcome state, it updates the welcome screen. In the Playing state, it updates game elements such as paddles, balls, and power-ups. The Paused state updates the pause menu, while the Goal state updates the goal animation. After updating, it draws the current state, then updates the particle system for visual effects. The game calculates the current frame rate (FPS) and updates the audio engine for sound effects. Finally, it refreshes the LCD display and sleeps for 10ms before starting the next iteration. This process continues until the game is no longer running.
+
+A more detailed look at what happens in each iteration of the main game loop:
+
+![Alt text](png/main_loop_execution.png?raw=true "Title")
+
+This flowchart provides more detail on each loop iteration:
+1. The loop starts by polling hardware inputs to determine user actions.
+2. Based on the current state and input, it updates game elements accordingly.
+3. After updating, it draws the current state, updates the particle system and audio engine.
+4. Finally, it refreshes the LCD display and sleeps for 10ms before the next iteration.
+
+## State Transitions
+
+The game transitions between different states based on events and user inputs. It starts in the Welcome state and moves to the Playing state when any button is pressed. From the Playing state, it can transition to the Paused state if the center joystick is pressed, or to the Goal state if a ball reaches the edge of the screen. In the Paused state, pressing the A button returns to Playing, while pressing B returns to the Welcome screen. The Goal state automatically returns to Playing once the animation is complete. The game can end from the Playing state under certain conditions.
+
+The game transitions between different states based on events and user inputs:
+
+![Alt text](png/state_transitions.png?raw=true "Title")
+
+This state diagram shows how the game moves between different states:
+- It starts in the Welcome state and moves to Playing when any button is pressed.
+- From Playing, it can transition to Paused or Goal states.
+- The Goal state automatically returns to Playing once the animation is complete.
+- The game can end from the Playing state.
+
+## Data Flow Between Classes
+
+The `Pong` class acts as the central controller in the game, interacting with all other classes. It manages instances of Paddle, Ball, PowerUp, ParticleSystem, AudioEngine, and SevenSegmentDisplay classes. Paddles interact with balls for collision detection and with power-ups for special effects. Both ball-paddle collisions and power-up collections can trigger particle effects (managed by ParticleSystem) and sound effects (managed by AudioEngine). The Pong class also handles the score display using SevenSegmentDisplay instances. It receives input from hardware (like joystick and buttons) and sends output to the LCD display. This centralized structure allows the Pong class to coordinate all aspects of the game, from physics simulations to visual and audio output.
+
+The following diagram illustrates how data flows between the main classes in the game:
+
+![Alt text](png/data_flow_between_classes.png?raw=true "Title")
+
+Key points about data flow:
+- The `Pong` class acts as the central controller, interacting with all other classes.
+- Paddles interact with balls and power-ups, triggering particle effects and audio cues.
+- The `Pong` class manages the score display and interacts with hardware input and LCD output.
+
+## Detailed Goal Animation Sequence
+
+When a goal is scored, a specific sequence of events occurs. First, the Pong class detects the goal and removes the scoring ball. It then changes the game state to "goal" and triggers the creation of celebration particles through the ParticleSystem. The AudioEngine is instructed to play a goal sound. For each frame of the animation, the Pong class updates the animation state, including the particles. It then draws the "GOAL!" text with rainbow colors, an expanding circle animation, any remaining game objects (like paddles, other balls, and power-ups), and the particles. This is all sent to the LCD display for rendering. This animation sequence repeats for a set number of frames. After the animation completes, the Pong class resets the ball position and changes the game state back to "playing", resuming normal gameplay.
+
+When a goal is scored, the following sequence of events occurs:
+
+![Alt text](png/goal_animation_sequence.png?raw=true "Title")
+
+This sequence diagram shows the detailed steps during a goal animation:
+1. The `Pong` class detects a goal and removes the scoring ball.
+2. It changes the game state to "goal" and triggers particle and sound effects.
+3. For each frame of the animation, it updates and draws various visual elements.
+4. After the animation, it resets the ball position and returns to the "playing" state.
+
+## Summary
+
+The execution behavior of the Pong game is a complex interplay of various components, all orchestrated by the central Pong class. Starting from the asyncio.run(main()) call, the game initializes and enters a main loop that continually updates and renders the game state. It smoothly transitions between different states (Welcome, Playing, Paused, and Goal) based on game events and user inputs. The game manages multiple elements including paddles, balls, power-ups, particles, and audio, coordinating their interactions in real-time. Special sequences, like the goal animation, temporarily take over the game flow to provide engaging feedback to the player. Throughout all of this, the Pong class acts as the central hub, managing state transitions, coordinating all game elements, and ensuring smooth gameplay. This structure allows for a dynamic and responsive game experience, balancing complex interactions with performance considerations on the limited hardware.
+
+The execution behavior of the Pong game can be summarized as follows:
+
+1. The game starts with `asyncio.run(main())`, initializing the LCD and Pong game.
+2. The main game loop continuously polls for input and updates the game state.
+3. Different update and draw routines are called depending on the current state (welcome, playing, paused, or goal).
+4. The game manages various elements like paddles, balls, power-ups, particles, and audio, coordinating their interactions.
+5. When a goal is scored, the game enters a special goal animation state, creating visual and audio effects before resuming play.
+6. Throughout the game, the `Pong` class acts as the central controller, managing state transitions and coordinating all game elements.
+
+This multi-level view provides a comprehensive understanding of how all elements interact, from the highest-level flow down to specific sequences like the goal animation. The relationships between classes are primarily managed through the `Pong` class, which acts as a central hub for game logic and state management.
