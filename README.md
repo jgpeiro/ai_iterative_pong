@@ -198,7 +198,7 @@ Each iteration of the main game loop follows a specific sequence of operations. 
 
 A more detailed look at what happens in each iteration of the main game loop:
 
-![Alt text](png/main_loop_execution.png?raw=true "Title")
+![Alt text](png/detailed_main_loop_execution.png?raw=true "Title")
 
 This flowchart provides more detail on each loop iteration:
 1. The loop starts by polling hardware inputs to determine user actions.
@@ -212,7 +212,7 @@ The game transitions between different states based on events and user inputs. I
 
 The game transitions between different states based on events and user inputs:
 
-![Alt text](png/state_transitions.png?raw=true "Title")
+![Alt text](png/game_state_transitions.png?raw=true "Title")
 
 This state diagram shows how the game moves between different states:
 - It starts in the Welcome state and moves to Playing when any button is pressed.
