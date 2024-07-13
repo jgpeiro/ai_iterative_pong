@@ -630,7 +630,7 @@ class Pong:
         # ... other power-up effects ...
 ```
 
-![Alt text](png/power_up_cretion_and_collection.png?raw=true "Title")
+![Alt text](png/power_up_creation_and_collection.png?raw=true "Title")
 
 ## Paddle Implementation
 
