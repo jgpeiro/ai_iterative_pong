@@ -429,3 +429,149 @@ While the game engine is well-designed for its purpose, there are some limitatio
 5. **Limited physics**: The physics simulations are very basic. A more robust physics engine could enable more complex gameplay.
 
 In conclusion, the Pong game engine demonstrates effective use of asyncio for game development on limited hardware. Its design allows for responsive gameplay while managing audio, particle effects, and game state. While there are areas for potential improvement, the engine provides a solid foundation for creating simple 2D games with real-time interactions.
+
+
+
+
+
+
+
+
+
+
+
+# Attack-Decay-Sustain-Release (ADSR) Envelope and PWM Implementation
+
+## Table of Contents
+1. [ADSR Envelope Overview](#adsr-envelope-overview)
+2. [ADSR Implementation in the Pong Game Engine](#adsr-implementation-in-the-pong-game-engine)
+3. [PWM Signal Properties and ADSR](#pwm-signal-properties-and-adsr)
+4. [Mathematical Representation](#mathematical-representation)
+5. [Performance Considerations](#performance-considerations)
+
+## ADSR Envelope Overview
+
+The Attack-Decay-Sustain-Release (ADSR) envelope is a common technique used in sound synthesis to shape the amplitude of a sound over time. It consists of four phases:
+
+1. **Attack**: The initial rise from zero to peak amplitude
+2. **Decay**: The subsequent drop to the sustain level
+3. **Sustain**: The constant amplitude held while a note is played
+4. **Release**: The final drop from the sustain level back to zero
+
+Here's a visual representation of an ADSR envelope:
+
+```
+Amplitude
+    ^
+    |    /\
+    |   /  \
+    |  /    \___________
+    | /                 \
+    |/                   \
+    +-----------------------> Time
+      A    D    S         R
+```
+
+## ADSR Implementation in the Pong Game Engine
+
+In the Pong game engine, the ADSR envelope is implemented in the `SoundGenerator` class. Here's the relevant code:
+
+```python
+class SoundGenerator:
+    def __init__(self, pin_number):
+        self.pwm = machine.PWM(machine.Pin(pin_number))
+        self.pwm.freq(440)  # Default frequency
+        self.pwm.duty_u16(0)  # Start silent
+        
+        self.volume = 50
+        self.attack = 0.01
+        self.decay = 0.1
+        self.sustain = 0.7
+        self.release = 0.3
+        
+        self.current_time = 0
+        self.is_note_on = False
+        self.envelope_stage = 'off'
+
+    async def update(self, dt):
+        level = self._calculate_envelope_level()
+        duty = int(level * self.volume * 655.35)  # Scale to 16-bit duty cycle
+        self.pwm.duty_u16(duty)
+        
+        self.current_time += dt
+
+    def _calculate_envelope_level(self):
+        if self.envelope_stage == 'attack':
+            level = min(1, self.current_time / self.attack)
+            if level >= 1:
+                self.envelope_stage = 'decay'
+        elif self.envelope_stage == 'decay':
+            level = max(self.sustain, 1 - (1 - self.sustain) * (self.current_time - self.attack) / self.decay)
+            if level <= self.sustain:
+                self.envelope_stage = 'sustain'
+        elif self.envelope_stage == 'sustain':
+            level = self.sustain
+        elif self.envelope_stage == 'release':
+            level = max(0, self.sustain * (1 - (self.current_time / self.release)))
+            if level <= 0:
+                self.envelope_stage = 'off'
+        else:
+            level = 0
+        return level
+```
+
+The ADSR envelope is implemented by calculating the appropriate amplitude level based on the current time and the envelope stage. The `_calculate_envelope_level()` method determines the current amplitude level, which is then used to set the PWM duty cycle.
+
+## PWM Signal Properties and ADSR
+
+Pulse Width Modulation (PWM) is used to generate audio signals in this implementation. PWM works by rapidly switching a digital signal between on and off states. The ratio of the "on" time to the total cycle time (on + off) is called the duty cycle.
+
+In audio applications, PWM takes advantage of two key properties:
+
+1. **Averaging effect**: When a PWM signal is passed through a low-pass filter (which could be as simple as a speaker's natural frequency response), it produces an analog-like output that's proportional to the duty cycle.
+
+2. **Frequency control**: The frequency of the PWM signal determines the pitch of the sound.
+
+The ADSR envelope modulates the duty cycle of the PWM signal over time, which in turn modulates the amplitude of the resulting sound. The relationship between duty cycle and perceived volume is approximately linear, which simplifies the implementation.
+
+## Mathematical Representation
+
+Let's define the ADSR envelope mathematically:
+
+1. **Attack**: For $0 \leq t < A$
+   $$ f(t) = \frac{t}{A} $$
+
+2. **Decay**: For $A \leq t < A + D$
+   $$ f(t) = 1 - (1 - S) \cdot \frac{t - A}{D} $$
+
+3. **Sustain**: For $A + D \leq t < A + D + S$
+   $$ f(t) = S $$
+
+4. **Release**: For $A + D + S \leq t < A + D + S + R$
+   $$ f(t) = S \cdot (1 - \frac{t - (A + D + S)}{R}) $$
+
+Where:
+- $t$ is the current time
+- $A, D, S, R$ are the Attack, Decay, Sustain, and Release parameters respectively
+
+The PWM duty cycle is then calculated as:
+
+$$ duty = f(t) \cdot volume \cdot 655.35 $$
+
+The factor 655.35 comes from scaling the 0-100 volume range to the 0-65535 range used by the 16-bit PWM.
+
+## Performance Considerations
+
+The ADSR implementation in this game engine is designed to be computationally efficient:
+
+1. **Linear interpolation**: The envelope uses simple linear interpolation, which is fast to compute.
+
+2. **Minimal branching**: The `_calculate_envelope_level()` method uses if-elif statements to determine the current stage, minimizing branching.
+
+3. **Precomputed constants**: Values like the sustain level are precomputed and stored, rather than calculated on each update.
+
+4. **Integer math**: The final duty cycle is converted to an integer, which is typically faster than floating-point operations on embedded systems.
+
+5. **Asynchronous updates**: The `update()` method is asynchronous, allowing it to be called without blocking the main game loop.
+
+While this implementation is efficient for the purposes of this game engine, there are potential optimizations that could be made for more demanding applications, such as using lookup tables for envelope shapes or implementing more complex envelope curves.
