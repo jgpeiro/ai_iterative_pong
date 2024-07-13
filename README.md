@@ -575,3 +575,182 @@ The ADSR implementation in this game engine is designed to be computationally ef
 5. **Asynchronous updates**: The `update()` method is asynchronous, allowing it to be called without blocking the main game loop.
 
 While this implementation is efficient for the purposes of this game engine, there are potential optimizations that could be made for more demanding applications, such as using lookup tables for envelope shapes or implementing more complex envelope curves.
+
+
+
+
+# Magnet Power-Up Analysis in Pong Game
+
+## Table of Contents
+1. [Introduction](#introduction)
+2. [Power-Up Creation and Collection](#power-up-creation-and-collection)
+3. [Paddle Implementation](#paddle-implementation)
+4. [Ball Behavior Modification](#ball-behavior-modification)
+5. [Physics Simulation](#physics-simulation)
+6. [Visual and Audio Feedback](#visual-and-audio-feedback)
+7. [Conclusion](#conclusion)
+
+## Introduction
+
+The magnet power-up in the Pong game introduces an interesting dynamic by allowing paddles to attract or repel the ball. This document explains how this power-up is implemented, its effects on game objects, and how it changes the gameplay.
+
+## Power-Up Creation and Collection
+
+The magnet power-up is created along with other power-ups in the `Pong` class:
+
+```python
+class Pong:
+    def update_power_ups(self):
+        if random.random() < 0.02:
+            self.power_ups.append(PowerUp(random.randint(20, 220), random.randint(20, 115)))
+
+class PowerUp:
+    def __init__(self, x, y):
+        self.type = random.choice(["grow", "shrink", "magnet", "control", "speed", "multiball"])
+        self.color = {
+            # ... other power-ups ...
+            "magnet": colors.BLUE,
+            # ... other power-ups ...
+        }[self.type]
+```
+
+When a paddle collects the power-up:
+
+```python
+class Pong:
+    async def update_power_ups(self):
+        for power_up in self.power_ups[:]:
+            if (abs(power_up.x - self.paddle1.x) < 10 and
+                self.paddle1.y <= power_up.y <= self.paddle1.y + self.paddle1.height):
+                self.apply_power_up(self.paddle1, power_up)
+                # ... similar code for paddle2 ...
+
+    def apply_power_up(self, paddle, power_up):
+        paddle.apply_power_up(power_up.type)
+        # ... other power-up effects ...
+```
+
+![Alt text](png/power_up_cretion_and_collection.png?raw=true "Title")
+
+## Paddle Implementation
+
+The `Paddle` class is modified to handle the magnet power-up:
+
+```python
+class Paddle:
+    def __init__(self, x, y, width, height):
+        # ... other initializations ...
+        self.magnet_strength = 0
+
+    def apply_power_up(self, power_up_type):
+        self.power_up_type = power_up_type
+        if power_up_type == "magnet":
+            self.magnet_strength = random.choice([-0.5, 0.5])  # Negative for repel, positive for attract
+        # ... handle other power-ups ...
+        self.power_up_timer = 300  # Power-up lasts for 300 frames (5 seconds)
+
+    def update(self):
+        if self.power_up_timer > 0:
+            self.power_up_timer -= 1
+            if self.power_up_timer == 0:
+                # ... reset other power-ups ...
+                self.magnet_strength = 0
+```
+
+## Ball Behavior Modification
+
+The `Ball` class is updated to account for the magnetic effect:
+
+```python
+class Ball:
+    def move(self, paddles):
+        self.x += self.vx
+        self.y += self.vy
+
+        # Apply magnet effect
+        for paddle in paddles:
+            if paddle.power_up_type == "magnet":
+                dx = paddle.x - self.x
+                dy = (paddle.y + paddle.height / 2) - self.y
+                distance = (dx**2 + dy**2)**0.5
+                if distance < 50:  # Magnet effect range
+                    force = paddle.magnet_strength / (distance**2)
+                    self.vx += force * dx / distance
+                    self.vy += force * dy / distance
+```
+
+![Alt text](png/ball_behavior_modification.png?raw=true "Title")
+
+## Physics Simulation
+
+The magnetic effect is simulated using an inverse square law, similar to real magnetic fields:
+
+1. The force is proportional to $\frac{1}{r^2}$, where $r$ is the distance between the ball and paddle.
+2. The direction of the force is along the line connecting the ball and paddle center.
+3. The magnitude of the force is scaled by the `magnet_strength` parameter.
+
+The resulting acceleration is added to the ball's velocity:
+
+```python
+force = paddle.magnet_strength / (distance**2)
+self.vx += force * dx / distance
+self.vy += force * dy / distance
+```
+
+This creates a more realistic and dynamic magnetic effect, where the influence becomes stronger as the ball gets closer to the paddle.
+
+## Visual and Audio Feedback
+
+Visual feedback for the magnet power-up is provided through the paddle color and a text indicator:
+
+```python
+class Paddle:
+    def draw(self, lcd):
+        if self.power_up_type == "magnet":
+            color = colors.BLUE
+        # ... handle other power-up colors ...
+
+class Pong:
+    def draw(self, lcd):
+        # ... other drawing code ...
+        if self.paddle1.power_up_type:
+            lcd.text(self.paddle1.power_up_type.upper(), 5, 125, colors.WHITE)
+        if self.paddle2.power_up_type:
+            lcd.text(self.paddle2.power_up_type.upper(), 185, 125, colors.WHITE)
+```
+
+Audio feedback is provided when the power-up is collected:
+
+```python
+class Pong:
+    async def update_power_ups(self):
+        # ... power-up collection code ...
+        self.audio_engine.play_power_up_collect()
+
+class AudioEngine:
+    def play_power_up_collect(self):
+        powerup_sound = SawtoothWave(0)
+        powerup_sound.set_frequency(880)  # A5 note
+        powerup_sound.attack = 0.01
+        powerup_sound.decay = 0.1
+        powerup_sound.sustain = 0.3
+        powerup_sound.release = 0.2
+        self.add_sound_generator(powerup_sound)
+        powerup_sound.note_on(timeout=0.3)  # 300ms sound
+```
+
+## Conclusion
+
+The magnet power-up adds an interesting dynamic to the Pong game by introducing a new force that affects the ball's movement. Here's a summary of its implementation and effects:
+
+1. The power-up is randomly generated and can be collected by paddles.
+2. When active, it gives the paddle a magnetic property that can attract or repel the ball.
+3. The magnetic effect is simulated using an inverse square law, creating a realistic force field.
+4. Visual feedback is provided through paddle color changes and text indicators.
+5. Audio feedback is given when the power-up is collected.
+
+This power-up adds depth to the gameplay, allowing for more strategic play and unexpected ball trajectories, enhancing the overall gaming experience.
+
+![Alt text](png/power_up_conclusion.png?raw=true "Title")
+
+This diagram illustrates how the magnet power-up integrates into the overall game system, affecting multiple components and ultimately enhancing the player experience through new gameplay dynamics and feedback mechanisms.
